@@ -26,6 +26,9 @@ func NewServer() *http.Server {
 		db: database.New(),
 	}
 
+	ch := make(chan database.DBNotification)
+	go NewServer.db.Watch(ch)
+
 	// Declare Server config
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", NewServer.port),

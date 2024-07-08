@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"fmt"
@@ -22,7 +23,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	e.GET("/health", s.healthHandler)
 
-	e.GET("/websocket", s.websocketHandler)
+	e.GET("/ws/all", s.allWsHandler)
 
 	return e
 }
@@ -64,5 +65,36 @@ func (s *Server) websocketHandler(c echo.Context) error {
 		}
 		time.Sleep(time.Second * 2)
 	}
+	return nil
+}
+
+func (s *Server) allWsHandler(c echo.Context) error {
+	w := c.Response().Writer
+	r := c.Request()
+	socket, err := websocket.Accept(w, r, nil)
+
+	if err != nil {
+		log.Printf("could not open websocket: %v", err)
+		_, _ = w.Write([]byte("could not open websocket"))
+		w.WriteHeader(http.StatusInternalServerError)
+		return nil
+	}
+
+	defer socket.Close(websocket.StatusGoingAway, "server closing websocket")
+
+	ctx := r.Context()
+	socketCtx := socket.CloseRead(ctx)
+
+	for {
+		dbNotification := <-s.ch
+
+		jsonData, _ := json.Marshal(dbNotification)
+
+		err := socket.Write(socketCtx, websocket.MessageText, jsonData)
+		if err != nil {
+			break
+		}
+	}
+
 	return nil
 }

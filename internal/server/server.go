@@ -16,18 +16,24 @@ type Server struct {
 	port int
 
 	db database.Service
+
+	ch chan database.DBNotification
 }
 
 func NewServer() *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
+
+	ch := make(chan database.DBNotification)
+
 	NewServer := &Server{
 		port: port,
 
 		db: database.New(),
+
+		ch: ch,
 	}
 
-	ch := make(chan database.DBNotification)
-	go NewServer.db.Watch(ch)
+	go NewServer.db.Watch(NewServer.ch)
 
 	// Declare Server config
 	server := &http.Server{

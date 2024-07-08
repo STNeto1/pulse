@@ -140,7 +140,7 @@ func (s *service) Watch(ch chan DBNotification) {
 	defer conn.Release()
 
 	pgConn := conn.Conn()
-	_, err = pgConn.Exec(context.Background(), "LISTEN example_channel")
+	_, err = pgConn.Exec(context.Background(), "LISTEN pulse_watcher")
 	if err != nil {
 		log.Fatalf("Unable to start listening: %v\n", err)
 	}

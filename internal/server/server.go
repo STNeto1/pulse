@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -31,6 +32,10 @@ func NewServer() *http.Server {
 		db: database.New(),
 
 		ch: ch,
+	}
+
+	if err := NewServer.db.SyncTables(); err != nil {
+		log.Fatalf("Failed to sync tables, can't continue", err.Error())
 	}
 
 	go NewServer.db.Watch(NewServer.ch)

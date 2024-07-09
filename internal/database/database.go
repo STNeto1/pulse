@@ -27,6 +27,10 @@ type Service interface {
 	// Watch takes a channel to send updates
 	// All tables/rows are monitored
 	Watch(chan DBNotification)
+
+	// SyncTables runs the script to enable Watch to listen to all changes
+	// It returns an error if the query fails
+	SyncTables() error
 }
 
 type service struct {
@@ -167,4 +171,69 @@ func (s *service) Watch(ch chan DBNotification) {
 		}
 	}
 
+}
+
+func (s *service) SyncTables() error {
+	_, err := s.db.Exec(context.Background(), `CREATE OR REPLACE FUNCTION pulse_watcher() RETURNS trigger AS
+$$
+DECLARE
+    payload JSON;
+BEGIN
+
+    IF (TG_OP = 'INSERT') THEN
+        payload = json_build_object(
+                'operation', lower(TG_OP),
+                'table', TG_TABLE_NAME,
+                'data', NEW);
+        PERFORM pg_notify('pulse_watcher', payload::text);
+    ELSIF (TG_OP = 'UPDATE') THEN
+        FOR payload IN
+            SELECT json_build_object(
+                           'operation', lower(TG_OP),
+                           'table', TG_TABLE_NAME,
+                           'data', NEW)
+            LOOP
+                PERFORM pg_notify('pulse_watcher', payload::text);
+            END LOOP;
+    ELSIF (TG_OP = 'DELETE') THEN
+        FOR payload IN
+            SELECT json_build_object(
+                           'operation', lower(TG_OP),
+                           'table', TG_TABLE_NAME,
+                           'data', OLD)
+            LOOP
+                PERFORM pg_notify('pulse_watcher', payload::text);
+            END LOOP;
+    END IF;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(context.Background(), `DO
+$$
+    DECLARE
+        rec RECORD;
+    BEGIN
+        FOR rec IN
+            SELECT tablename
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            LOOP
+                EXECUTE format('
+            CREATE OR REPLACE TRIGGER %I_trigger
+            AFTER INSERT OR UPDATE OR DELETE ON %I
+            FOR EACH ROW EXECUTE FUNCTION pulse_watcher();
+        ', rec.tablename, rec.tablename);
+            END LOOP;
+    END
+$$;`)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

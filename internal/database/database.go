@@ -128,10 +128,11 @@ type DBNotification struct {
 	Data      interface{} `json:"data"`
 }
 
-// Close closes the database connection.
-// It logs a message indicating the disconnection from the specific database.
-// If the connection is successfully closed, it returns nil.
-// If an error occurs while closing the connection, it returns the error.
+// Watch listen for messages from the database
+// It takes a DBNotification channel
+// If it fails to acquire a connections, it kills the app
+// If it fails to LISTEN to a channel, it kills the app
+// If it fails to parse to wait for the notification or to parse the message, will ignore the error and continue
 func (s *service) Watch(ch chan DBNotification) {
 	conn, err := s.db.Acquire(context.Background())
 	if err != nil {
@@ -158,6 +159,7 @@ func (s *service) Watch(ch chan DBNotification) {
 			var dbNotification DBNotification
 			if err := json.Unmarshal([]byte(rawNotification.Payload), &dbNotification); err != nil {
 				log.Printf("Failed to parse Payload into DBNotification: %v | %v", err, rawNotification.Payload)
+				time.Sleep(1 * time.Second) // Backoff on error
 				continue
 			}
 

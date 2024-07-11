@@ -35,7 +35,7 @@ func NewServer() *http.Server {
 	}
 
 	if err := NewServer.db.SyncTables(); err != nil {
-		log.Fatalf("Failed to sync tables, can't continue", err.Error())
+		log.Fatalf("Failed to sync tables, can't continue %s\n", err.Error())
 	}
 
 	go NewServer.db.Watch(NewServer.ch)

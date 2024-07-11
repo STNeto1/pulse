@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"fmt"
@@ -71,28 +70,38 @@ func (s *Server) websocketHandler(c echo.Context) error {
 func (s *Server) allWsHandler(c echo.Context) error {
 	w := c.Response().Writer
 	r := c.Request()
-	socket, err := websocket.Accept(w, r, nil)
 
+	socket, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		log.Printf("could not open websocket: %v", err)
 		_, _ = w.Write([]byte("could not open websocket"))
 		w.WriteHeader(http.StatusInternalServerError)
 		return nil
 	}
-
 	defer socket.Close(websocket.StatusGoingAway, "server closing websocket")
+
+	s.register <- socket
+	defer func() {
+		s.unregister <- socket
+		socket.Close(websocket.StatusNormalClosure, "Closing")
+	}()
 
 	ctx := r.Context()
 	socketCtx := socket.CloseRead(ctx)
 
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+_for:
 	for {
-		dbNotification := <-s.ch
-
-		jsonData, _ := json.Marshal(dbNotification)
-
-		err := socket.Write(socketCtx, websocket.MessageText, jsonData)
-		if err != nil {
-			break
+		select {
+		case <-socketCtx.Done():
+			break _for
+		case <-ticker.C:
+			if err := socket.Ping(socketCtx); err != nil {
+				log.Println("Failed to ping socket", err)
+				break _for
+			}
 		}
 	}
 

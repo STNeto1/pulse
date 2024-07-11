@@ -26,7 +26,7 @@ type Service interface {
 
 	// Watch takes a channel to send updates
 	// All tables/rows are monitored
-	Watch(chan DBNotification)
+	Watch(chan []byte)
 
 	// SyncTables runs the script to enable Watch to listen to all changes
 	// It returns an error if the query fails
@@ -137,7 +137,7 @@ type DBNotification struct {
 // If it fails to acquire a connections, it kills the app
 // If it fails to LISTEN to a channel, it kills the app
 // If it fails to parse to wait for the notification or to parse the message, will ignore the error and continue
-func (s *service) Watch(ch chan DBNotification) {
+func (s *service) Watch(ch chan []byte) {
 	conn, err := s.db.Acquire(context.Background())
 	if err != nil {
 		log.Fatalf("Unable to acquire connection: %v\n", err)
@@ -167,7 +167,8 @@ func (s *service) Watch(ch chan DBNotification) {
 				continue
 			}
 
-			ch <- dbNotification
+			jsonData, _ := json.Marshal(dbNotification)
+			ch <- jsonData
 		}
 	}
 

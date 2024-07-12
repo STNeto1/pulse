@@ -21,6 +21,7 @@ type client struct {
 	isClosing bool
 	mut       sync.Mutex
 	table     string
+	id        string
 }
 
 type Server struct {
@@ -79,6 +80,10 @@ func (s *Server) Hub() {
 					}
 
 					if c.table != "" && c.table != msg.Table {
+						return
+					}
+
+					if c.id != "" && c.id != msg.ID {
 						return
 					}
 

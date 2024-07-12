@@ -129,6 +129,7 @@ func (s *service) Close() error {
 type DBNotification struct {
 	Operation string      `json:"operation"`
 	Table     string      `json:"table"`
+	ID        string      `json:"id"`
 	Data      interface{} `json:"data"`
 }
 
@@ -184,6 +185,7 @@ BEGIN
         payload = json_build_object(
                 'operation', lower(TG_OP),
                 'table', TG_TABLE_NAME,
+                'id', NEW.id::text,
                 'data', NEW);
         PERFORM pg_notify('pulse_watcher', payload::text);
     ELSIF (TG_OP = 'UPDATE') THEN
@@ -191,6 +193,7 @@ BEGIN
             SELECT json_build_object(
                            'operation', lower(TG_OP),
                            'table', TG_TABLE_NAME,
+                           'id', NEW.id::text,
                            'data', NEW)
             LOOP
                 PERFORM pg_notify('pulse_watcher', payload::text);
@@ -200,6 +203,7 @@ BEGIN
             SELECT json_build_object(
                            'operation', lower(TG_OP),
                            'table', TG_TABLE_NAME,
+                           'id', OLD.id::text,
                            'data', OLD)
             LOOP
                 PERFORM pg_notify('pulse_watcher', payload::text);

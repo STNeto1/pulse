@@ -24,6 +24,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	e.GET("/ws/all", s.allWsHandler)
 	e.GET("/ws/:table", s.singleTableWsHandler)
+	e.GET("/ws/:table/:id", s.singleRowWsHandler)
 
 	return e
 }
@@ -119,6 +120,43 @@ func (s *Server) singleTableWsHandler(c echo.Context) error {
 	defer socket.Close(websocket.StatusGoingAway, "server closing websocket")
 
 	s.clients[socket] = &client{table: c.Param("table")}
+
+	ctx := r.Context()
+	socketCtx := socket.CloseRead(ctx)
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+_for:
+	for {
+		select {
+		case <-socketCtx.Done():
+			break _for
+		case <-ticker.C:
+			if err := socket.Ping(socketCtx); err != nil {
+				log.Println("Failed to ping socket", err)
+				break _for
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) singleRowWsHandler(c echo.Context) error {
+	w := c.Response().Writer
+	r := c.Request()
+
+	socket, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		log.Printf("could not open websocket: %v", err)
+		_, _ = w.Write([]byte("could not open websocket"))
+		w.WriteHeader(http.StatusInternalServerError)
+		return nil
+	}
+	defer socket.Close(websocket.StatusGoingAway, "server closing websocket")
+
+	s.clients[socket] = &client{table: c.Param("table"), id: c.Param("id")}
 
 	ctx := r.Context()
 	socketCtx := socket.CloseRead(ctx)

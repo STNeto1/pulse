@@ -98,6 +98,12 @@ func (s *Server) Hub() {
 						connection.Close(websocket.StatusGoingAway, "")
 						delete(s.clients, connection)
 					}
+
+					if c.table == msg.Table && c.id == msg.ID && msg.Operation == "delete" {
+						connection.Write(context.Background(), websocket.MessageText, []byte("row was deleted, nothing to see now"))
+						connection.Close(websocket.StatusGoingAway, "")
+						delete(s.clients, connection)
+					}
 				}(connection, cli)
 			}
 		}

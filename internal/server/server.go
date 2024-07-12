@@ -88,9 +88,10 @@ func (s *Server) Hub() {
 						c.isClosing = true
 
 						log.Println("write error:", err)
-						// connection.WriteMessage(websocket.CloseMessage, []byte{})
-						// connection.Close()
-						// unregister <- connection
+
+						connection.Write(context.Background(), websocket.MessageText, []byte("closing"))
+						connection.Close(websocket.StatusGoingAway, "")
+						delete(s.clients, connection)
 					}
 				}(connection, cli)
 			}

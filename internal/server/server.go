@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 type client struct {
 	isClosing bool
 	mut       sync.Mutex
+	table     string
 }
 
 type Server struct {
@@ -26,10 +28,8 @@ type Server struct {
 
 	db database.Service
 
-	clients    map[*websocket.Conn]*client
-	register   chan *websocket.Conn
-	unregister chan *websocket.Conn
-	broadcast  chan []byte
+	clients   map[*websocket.Conn]*client
+	broadcast chan database.DBNotification
 }
 
 func NewServer() *http.Server {
@@ -42,10 +42,8 @@ func NewServer() *http.Server {
 
 		db: database.New(),
 
-		clients:    make(map[*websocket.Conn]*client),
-		register:   make(chan *websocket.Conn),
-		unregister: make(chan *websocket.Conn),
-		broadcast:  make(chan []byte),
+		clients:   make(map[*websocket.Conn]*client),
+		broadcast: make(chan database.DBNotification),
 	}
 
 	if err := NewServer.db.SyncTables(); err != nil {
@@ -70,10 +68,6 @@ func NewServer() *http.Server {
 func (s *Server) Hub() {
 	for {
 		select {
-		case conn := <-s.register:
-			s.clients[conn] = &client{}
-		case conn := <-s.unregister:
-			delete(s.clients, conn)
 		case msg := <-s.broadcast:
 			for connection, cli := range s.clients {
 				go func(conn *websocket.Conn, c *client) {
@@ -84,7 +78,13 @@ func (s *Server) Hub() {
 						return
 					}
 
-					if err := conn.Write(context.Background(), websocket.MessageText, msg); err != nil {
+					if c.table != "" && c.table != msg.Table {
+						return
+					}
+
+					jsonData, _ := json.Marshal(msg)
+
+					if err := conn.Write(context.Background(), websocket.MessageText, jsonData); err != nil {
 						c.isClosing = true
 
 						log.Println("write error:", err)

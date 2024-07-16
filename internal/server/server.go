@@ -94,15 +94,15 @@ func (s *Server) Hub() {
 
 						log.Println("write error:", err)
 
-						connection.Write(context.Background(), websocket.MessageText, []byte("closing"))
-						connection.Close(websocket.StatusGoingAway, "")
-						delete(s.clients, connection)
+						conn.Write(context.Background(), websocket.MessageText, []byte("closing"))
+						conn.Close(websocket.StatusGoingAway, "")
+						delete(s.clients, conn)
 					}
 
 					if c.table == msg.Table && c.id == msg.ID && msg.Operation == "delete" {
-						connection.Write(context.Background(), websocket.MessageText, []byte("row was deleted, nothing to see now"))
-						connection.Close(websocket.StatusGoingAway, "")
-						delete(s.clients, connection)
+						conn.Write(context.Background(), websocket.MessageText, []byte("row was deleted, nothing to see now"))
+						conn.Close(websocket.StatusGoingAway, "")
+						delete(s.clients, conn)
 					}
 				}(connection, cli)
 			}

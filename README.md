@@ -1,6 +1,18 @@
 # Project pulse
 
-One Paragraph of project description goes here
+Demo showing how to listen to database changes and send them to a WebSocket connection, akin to FireBase, Supabase and etc. 
+
+```bash
+$ '/ws/all' -> Listen to all tables + all rows
+$ '/ws/$table' -> Listen to all events on a specific table
+$ '/ws/$table/$id' -> Listen to all events on a specific table + specific row.
+```
+
+## Limitations
+
+1. `$id` can only match the rows that do contain that.
+2. On transactions, events are pushed batched after the commit.
+3. It's just a demo. Not a real service.
 
 ## Getting Started
 
@@ -21,16 +33,6 @@ make build
 run the application
 ```bash
 make run
-```
-
-Create DB container
-```bash
-make docker-run
-```
-
-Shutdown DB container
-```bash
-make docker-down
 ```
 
 live reload the application
